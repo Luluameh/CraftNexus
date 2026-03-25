@@ -65,7 +65,7 @@ pub enum DataKey {
 #[contracttype]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum EscrowStatus {
-    Pending = 0,
+    Active = 0,
     Released = 1,
     Refunded = 2,
     Disputed = 3,
@@ -92,6 +92,7 @@ pub struct Escrow {
     pub created_at: u32,
     pub ipfs_hash: Option<String>,
     pub metadata_hash: Option<Bytes>,
+    pub dispute_reason: Option<String>,
 }
 
 #[contracttype]
@@ -125,6 +126,7 @@ pub struct FundsRefundedEvent {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EscrowDisputedEvent {
     pub escrow_id: u64,
+    pub dispute_reason: String,
 }
 
 #[contracttype]
@@ -132,6 +134,10 @@ pub struct EscrowDisputedEvent {
 pub struct EscrowResolvedEvent {
     pub escrow_id: u64,
     pub resolution: Resolution,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EscrowMetadata {
     pub ipfs_hash: Option<String>,
     pub metadata_hash: Option<Bytes>,
@@ -315,11 +321,12 @@ impl EscrowContract {
             seller: seller.clone(),
             token: token.clone(),
             amount,
-            status: EscrowStatus::Pending,
+            status: EscrowStatus::Active,
             release_window: window,
             created_at,
             ipfs_hash: ipfs_hash.clone(),
             metadata_hash: metadata_hash.clone(),
+            dispute_reason: None,
         };
 
         env.storage()
@@ -434,7 +441,7 @@ impl EscrowContract {
         // Only buyer can release funds
         escrow.buyer.require_auth();
         
-        if !(escrow.status == EscrowStatus::Pending) { env.panic_with_error(Error::InvalidEscrowState); }
+        if !(escrow.status == EscrowStatus::Active) { env.panic_with_error(Error::InvalidEscrowState); }
 
         // Get platform config
         let config = Self::get_platform_config(&env);
@@ -492,7 +499,7 @@ impl EscrowContract {
         if !(escrow_opt.is_some()) { env.panic_with_error(Error::EscrowNotFound); }
         let mut escrow: Escrow = escrow_opt.unwrap();
 
-        if !(escrow.status == EscrowStatus::Pending) { env.panic_with_error(Error::InvalidEscrowState); }
+        if !(escrow.status == EscrowStatus::Active) { env.panic_with_error(Error::InvalidEscrowState); }
 
         let current_time = env.ledger().timestamp();
         let elapsed = current_time - (escrow.created_at as u64);
@@ -564,7 +571,7 @@ impl EscrowContract {
             env.panic_with_error(Error::Unauthorized);
         }
 
-        if !(escrow.status == EscrowStatus::Pending) { env.panic_with_error(Error::InvalidEscrowState); }
+        if !(escrow.status == EscrowStatus::Active) { env.panic_with_error(Error::InvalidEscrowState); }
 
         // Update status
         escrow.status = EscrowStatus::Refunded;
@@ -643,7 +650,7 @@ impl EscrowContract {
         if !(escrow_opt.is_some()) { env.panic_with_error(Error::EscrowNotFound); }
         let escrow: Escrow = escrow_opt.unwrap();
 
-        if escrow.status != EscrowStatus::Pending {
+        if escrow.status != EscrowStatus::Active {
             return false;
         }
 
@@ -657,8 +664,9 @@ impl EscrowContract {
     /// 
     /// # Arguments
     /// * `order_id` - Order identifier
-    /// * `authorized_address` - Address authorized to dispute (buyer or admin)
-    pub fn dispute_escrow(env: Env, order_id: u32, authorized_address: Address) {
+    /// * `dispute_reason` - Reason for dispute
+    /// * `authorized_address` - Address authorized to dispute (buyer or seller)
+    pub fn dispute_escrow(env: Env, order_id: u32, dispute_reason: String, authorized_address: Address) {
         authorized_address.require_auth();
 
         let escrow_opt = env
@@ -668,16 +676,15 @@ impl EscrowContract {
         if !(escrow_opt.is_some()) { env.panic_with_error(Error::EscrowNotFound); }
         let mut escrow: Escrow = escrow_opt.unwrap();
 
-        let config = Self::get_platform_config(&env);
-
-        // Allow buyer or admin to dispute
-        if !(escrow.buyer == authorized_address || authorized_address == config.admin) {
+        // Allow buyer or seller to dispute
+        if !(escrow.buyer == authorized_address || escrow.seller == authorized_address) {
             env.panic_with_error(Error::Unauthorized);
         }
 
-        if !(escrow.status == EscrowStatus::Pending) { env.panic_with_error(Error::InvalidEscrowState); }
+        if !(escrow.status == EscrowStatus::Active) { env.panic_with_error(Error::InvalidEscrowState); }
 
         escrow.status = EscrowStatus::Disputed;
+        escrow.dispute_reason = Some(dispute_reason.clone());
         env.storage()
             .persistent()
             .set(&(ESCROW, order_id), &escrow);
@@ -686,6 +693,7 @@ impl EscrowContract {
             (Symbol::new(&env, "escrow_disputed"), order_id as u64),
             EscrowDisputedEvent {
                 escrow_id: order_id as u64,
+                dispute_reason,
             },
         );
     }
