@@ -376,6 +376,10 @@ impl EscrowContract {
         let zero: i128 = 0;
         env.storage().persistent().set(&TOTAL_FEES, &zero);
         env.storage().persistent().extend_ttl(&TOTAL_FEES, 1000, 518400);
+
+        // Initialize contract version to 1
+        env.storage().persistent().set(&DataKey::ContractVersion, &1u32);
+        env.storage().persistent().extend_ttl(&DataKey::ContractVersion, 1000, 518400);
     }
     /// Create a new escrow for an order
     ///
@@ -730,23 +734,26 @@ impl EscrowContract {
         let current_version: u32 = env
             .storage()
             .persistent()
-            .get(&(ESCROW, order_id));
-        if !(escrow_opt.is_some()) { env.panic_with_error(Error::EscrowNotFound); }
-        env.storage().persistent().extend_ttl(&(ESCROW, order_id), 1000, 518400);
-        let mut escrow: Escrow = escrow_opt.unwrap();
+            .get(&DataKey::ContractVersion)
+            .unwrap_or(0);
 
         env.storage()
             .persistent()
             .set(&DataKey::ContractVersion, &(current_version + 1));
+        env.storage().persistent().extend_ttl(&DataKey::ContractVersion, 1000, 518400);
 
         Ok(())
     }
 
     pub fn get_version(env: Env) -> u32 {
-        env.storage()
+        let version = env.storage()
             .persistent()
             .get(&DataKey::ContractVersion)
-            .unwrap_or(0)
+            .unwrap_or(0);
+        if env.storage().persistent().has(&DataKey::ContractVersion) {
+            env.storage().persistent().extend_ttl(&DataKey::ContractVersion, 1000, 518400);
+        }
+        version
     }
 
     /// Refund funds to buyer (admin only)
@@ -1294,7 +1301,10 @@ impl EscrowContract {
         // Then process all releases
         for i in 0..order_ids.len() {
             if let Some(order_id) = order_ids.get(i) {
-                let escrow_opt = env.storage().persistent().get(&(ESCROW, order_id));
+                let escrow_opt: Option<Escrow> = env.storage().persistent().get(&(ESCROW, order_id));
+                if escrow_opt.is_some() {
+                    env.storage().persistent().extend_ttl(&(ESCROW, order_id), 1000, 518400);
+                }
 
                 if let Some(mut escrow) = escrow_opt {
                     // Get platform config
