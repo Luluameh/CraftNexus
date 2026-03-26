@@ -91,7 +91,7 @@
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 100000000
+                    "lo": 1000000000
                   }
                 }
               ]
@@ -122,11 +122,11 @@
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 50000000
+                    "lo": 100
                   }
                 },
                 {
-                  "u32": 1
+                  "u32": 100
                 },
                 "void"
               ]
@@ -148,7 +148,7 @@
                     {
                       "i128": {
                         "hi": 0,
-                        "lo": 50000000
+                        "lo": 100
                       }
                     }
                   ]
@@ -431,7 +431,7 @@
                 "val": {
                   "vec": [
                     {
-                      "u64": 1
+                      "u64": 100
                     }
                   ]
                 }
@@ -491,7 +491,7 @@
                   "symbol": "ESCROW"
                 },
                 {
-                  "u32": 1
+                  "u32": 100
                 }
               ]
             },
@@ -511,7 +511,7 @@
                       "symbol": "ESCROW"
                     },
                     {
-                      "u32": 1
+                      "u32": 100
                     }
                   ]
                 },
@@ -525,7 +525,7 @@
                       "val": {
                         "i128": {
                           "hi": 0,
-                          "lo": 50000000
+                          "lo": 100
                         }
                       }
                     },
@@ -556,7 +556,7 @@
                         "symbol": "id"
                       },
                       "val": {
-                        "u64": 1
+                        "u64": 100
                       }
                     },
                     {
@@ -698,7 +698,7 @@
                 "val": {
                   "vec": [
                     {
-                      "u64": 1
+                      "u64": 100
                     }
                   ]
                 }
@@ -917,7 +917,7 @@
                       "val": {
                         "i128": {
                           "hi": 0,
-                          "lo": 50000000
+                          "lo": 100
                         }
                       }
                     },
@@ -990,7 +990,7 @@
                       "val": {
                         "i128": {
                           "hi": 0,
-                          "lo": 50000000
+                          "lo": 999999900
                         }
                       }
                     },
@@ -1418,7 +1418,7 @@
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 100000000
+                    "lo": 1000000000
                   }
                 }
               ]
@@ -1452,7 +1452,7 @@
             "data": {
               "i128": {
                 "hi": 0,
-                "lo": 100000000
+                "lo": 1000000000
               }
             }
           }
@@ -1513,11 +1513,11 @@
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 50000000
+                    "lo": 100
                   }
                 },
                 {
-                  "u32": 1
+                  "u32": 100
                 },
                 "void"
               ]
@@ -1556,7 +1556,7 @@
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 50000000
+                    "lo": 100
                   }
                 }
               ]
@@ -1590,7 +1590,7 @@
             "data": {
               "i128": {
                 "hi": 0,
-                "lo": 50000000
+                "lo": 100
               }
             }
           }
@@ -1631,7 +1631,7 @@
                 "symbol": "escrow_created"
               },
               {
-                "u64": 1
+                "u64": 100
               }
             ],
             "data": {
@@ -1643,7 +1643,7 @@
                   "val": {
                     "i128": {
                       "hi": 0,
-                      "lo": 50000000
+                      "lo": 100
                     }
                   }
                 },
@@ -1660,7 +1660,7 @@
                     "symbol": "escrow_id"
                   },
                   "val": {
-                    "u64": 1
+                    "u64": 100
                   }
                 },
                 {
@@ -1738,7 +1738,7 @@
                   "val": {
                     "i128": {
                       "hi": 0,
-                      "lo": 50000000
+                      "lo": 100
                     }
                   }
                 },
@@ -1769,7 +1769,7 @@
                     "symbol": "id"
                   },
                   "val": {
-                    "u64": 1
+                    "u64": 100
                   }
                 },
                 {
@@ -1838,16 +1838,26 @@
                 "bytes": "0000000000000000000000000000000000000000000000000000000000000001"
               },
               {
-                "symbol": "resolve_dispute"
+                "symbol": "release_batch_funds"
               }
             ],
             "data": {
               "vec": [
                 {
-                  "u32": 1
+                  "u64": 1
                 },
                 {
-                  "u32": 1
+                  "vec": [
+                    {
+                      "u32": 100
+                    },
+                    {
+                      "u32": 999
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                 }
               ]
             }
@@ -1865,21 +1875,16 @@
           "v0": {
             "topics": [
               {
-                "symbol": "log"
+                "symbol": "fn_return"
+              },
+              {
+                "symbol": "release_batch_funds"
               }
             ],
             "data": {
-              "vec": [
-                {
-                  "string": "caught panic 'Escrow not in dispute' from contract function 'Symbol(obj#345)'"
-                },
-                {
-                  "u32": 1
-                },
-                {
-                  "u32": 1
-                }
-              ]
+              "error": {
+                "contract": 2
+              }
             }
           }
         }
@@ -1899,12 +1904,12 @@
               },
               {
                 "error": {
-                  "wasm_vm": "invalid_action"
+                  "contract": 2
                 }
               }
             ],
             "data": {
-              "string": "caught error from function"
+              "string": "escalating Ok(ScErrorType::Contract) frame-exit to Err"
             }
           }
         }
@@ -1924,7 +1929,7 @@
               },
               {
                 "error": {
-                  "wasm_vm": "invalid_action"
+                  "contract": 2
                 }
               }
             ],
@@ -1934,15 +1939,25 @@
                   "string": "contract call failed"
                 },
                 {
-                  "symbol": "resolve_dispute"
+                  "symbol": "release_batch_funds"
                 },
                 {
                   "vec": [
                     {
-                      "u32": 1
+                      "u64": 1
                     },
                     {
-                      "u32": 1
+                      "vec": [
+                        {
+                          "u32": 100
+                        },
+                        {
+                          "u32": 999
+                        }
+                      ]
+                    },
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                     }
                   ]
                 }
@@ -1966,7 +1981,7 @@
               },
               {
                 "error": {
-                  "wasm_vm": "invalid_action"
+                  "contract": 2
                 }
               }
             ],

@@ -366,19 +366,20 @@ impl EscrowContract {
         };
 
         env.storage().persistent().set(&PLATFORM_FEE, &config);
-        env.storage()
-            .persistent()
-            .set(&PLATFORM_WALLET, &platform_wallet);
+        env.storage().persistent().extend_ttl(&PLATFORM_FEE, 1000, 518400);
+        env.storage().persistent().set(&PLATFORM_WALLET, &platform_wallet);
+        env.storage().persistent().extend_ttl(&PLATFORM_WALLET, 1000, 518400);
         env.storage().persistent().set(&ADMIN, &admin);
-
+        env.storage().persistent().extend_ttl(&ADMIN, 1000, 518400);
+        
         // Initialize total fees to 0
         let zero: i128 = 0;
         env.storage().persistent().set(&TOTAL_FEES, &zero);
+        env.storage().persistent().extend_ttl(&TOTAL_FEES, 1000, 518400);
 
-        // Initialize contract version
-        env.storage()
-            .persistent()
-            .set(&DataKey::ContractVersion, &CURRENT_VERSION);
+        // Initialize contract version to 1
+        env.storage().persistent().set(&DataKey::ContractVersion, &1u32);
+        env.storage().persistent().extend_ttl(&DataKey::ContractVersion, 1000, 518400);
     }
     /// Create a new escrow for an order
     ///
@@ -460,7 +461,10 @@ impl EscrowContract {
             dispute_reason: None,
         };
 
-        env.storage().persistent().set(&(ESCROW, order_id), &escrow);
+        env.storage()
+            .persistent()
+            .set(&(ESCROW, order_id), &escrow);
+        env.storage().persistent().extend_ttl(&(ESCROW, order_id), 1000, 518400);
 
         // Update buyer's escrow list for indexing
         let buyer_key = DataKey::BuyerEscrows(buyer.clone());
@@ -471,6 +475,7 @@ impl EscrowContract {
             .unwrap_or(soroban_sdk::Vec::new(&env));
         buyer_escrows.push_back(order_id as u64);
         env.storage().persistent().set(&buyer_key, &buyer_escrows);
+        env.storage().persistent().extend_ttl(&buyer_key, 1000, 518400);
 
         // Update seller's escrow list for indexing
         let seller_key = DataKey::SellerEscrows(seller.clone());
@@ -481,6 +486,7 @@ impl EscrowContract {
             .unwrap_or(soroban_sdk::Vec::new(&env));
         seller_escrows.push_back(order_id as u64);
         env.storage().persistent().set(&seller_key, &seller_escrows);
+        env.storage().persistent().extend_ttl(&seller_key, 1000, 518400);
 
         // Transfer funds from buyer to contract
         let client = token::Client::new(&env, &token);
@@ -515,7 +521,10 @@ impl EscrowContract {
             .persistent()
             .get(&key)
             .unwrap_or(soroban_sdk::Vec::new(&env));
-
+        if env.storage().persistent().has(&key) {
+            env.storage().persistent().extend_ttl(&key, 1000, 518400);
+        }
+        
         let start = page * limit;
         let len = escrow_ids.len();
 
@@ -540,7 +549,10 @@ impl EscrowContract {
             .persistent()
             .get(&key)
             .unwrap_or(soroban_sdk::Vec::new(&env));
-
+        if env.storage().persistent().has(&key) {
+            env.storage().persistent().extend_ttl(&key, 1000, 518400);
+        }
+        
         let start = page * limit;
         let len = escrow_ids.len();
 
@@ -554,10 +566,11 @@ impl EscrowContract {
 
     /// Get platform configuration
     fn get_platform_config(env: &Env) -> PlatformConfig {
-        let config = env.storage().persistent().get(&PLATFORM_FEE);
-        if !(config.is_some()) {
-            env.panic_with_error(Error::PlatformNotInitialized);
-        }
+        let config = env.storage()
+            .persistent()
+            .get(&PLATFORM_FEE);
+        if !(config.is_some()) { env.panic_with_error(Error::PlatformNotInitialized); }
+        env.storage().persistent().extend_ttl(&PLATFORM_FEE, 1000, 518400);
         config.unwrap()
     }
 
@@ -575,10 +588,12 @@ impl EscrowContract {
     /// # Arguments
     /// * `order_id` - Order identifier
     pub fn release_funds(env: Env, order_id: u32) {
-        let escrow_opt = env.storage().persistent().get(&(ESCROW, order_id));
-        if !(escrow_opt.is_some()) {
-            env.panic_with_error(Error::EscrowNotFound);
-        }
+        let escrow_opt = env
+            .storage()
+            .persistent()
+            .get(&(ESCROW, order_id));
+        if !(escrow_opt.is_some()) { env.panic_with_error(Error::EscrowNotFound); }
+        env.storage().persistent().extend_ttl(&(ESCROW, order_id), 1000, 518400);
         let mut escrow: Escrow = escrow_opt.unwrap();
 
         // Only buyer can release funds
@@ -639,10 +654,12 @@ impl EscrowContract {
     /// # Arguments
     /// * `order_id` - Order identifier
     pub fn auto_release(env: Env, order_id: u32) {
-        let escrow_opt = env.storage().persistent().get(&(ESCROW, order_id));
-        if !(escrow_opt.is_some()) {
-            env.panic_with_error(Error::EscrowNotFound);
-        }
+        let escrow_opt = env
+            .storage()
+            .persistent()
+            .get(&(ESCROW, order_id));
+        if !(escrow_opt.is_some()) { env.panic_with_error(Error::EscrowNotFound); }
+        env.storage().persistent().extend_ttl(&(ESCROW, order_id), 1000, 518400);
         let mut escrow: Escrow = escrow_opt.unwrap();
 
         if !(escrow.status == EscrowStatus::Active) {
@@ -680,6 +697,7 @@ impl EscrowContract {
             let mut total_fees: i128 = env.storage().persistent().get(&TOTAL_FEES).unwrap_or(0);
             total_fees += fee_amount;
             env.storage().persistent().set(&TOTAL_FEES, &total_fees);
+            env.storage().persistent().extend_ttl(&TOTAL_FEES, 1000, 518400);
         }
 
         // Transfer remaining funds to seller
@@ -722,15 +740,20 @@ impl EscrowContract {
         env.storage()
             .persistent()
             .set(&DataKey::ContractVersion, &(current_version + 1));
+        env.storage().persistent().extend_ttl(&DataKey::ContractVersion, 1000, 518400);
 
         Ok(())
     }
 
     pub fn get_version(env: Env) -> u32 {
-        env.storage()
+        let version = env.storage()
             .persistent()
             .get(&DataKey::ContractVersion)
-            .unwrap_or(0)
+            .unwrap_or(0);
+        if env.storage().persistent().has(&DataKey::ContractVersion) {
+            env.storage().persistent().extend_ttl(&DataKey::ContractVersion, 1000, 518400);
+        }
+        version
     }
 
     /// Refund funds to buyer (admin only)
@@ -816,10 +839,11 @@ impl EscrowContract {
     /// # Arguments
     /// * `order_id` - Order identifier
     pub fn get_escrow(env: Env, order_id: u32) -> Escrow {
-        let escrow_opt = env.storage().persistent().get(&(ESCROW, order_id));
-        if !(escrow_opt.is_some()) {
-            env.panic_with_error(Error::EscrowNotFound);
-        }
+        let escrow_opt = env.storage()
+            .persistent()
+            .get(&(ESCROW, order_id));
+        if !(escrow_opt.is_some()) { env.panic_with_error(Error::EscrowNotFound); }
+        env.storage().persistent().extend_ttl(&(ESCROW, order_id), 1000, 518400);
         escrow_opt.unwrap()
     }
 
@@ -837,10 +861,12 @@ impl EscrowContract {
     /// # Arguments
     /// * `order_id` - Order identifier
     pub fn can_auto_release(env: Env, order_id: u32) -> bool {
-        let escrow_opt = env.storage().persistent().get(&(ESCROW, order_id));
-        if !(escrow_opt.is_some()) {
-            env.panic_with_error(Error::EscrowNotFound);
-        }
+        let escrow_opt = env
+            .storage()
+            .persistent()
+            .get(&(ESCROW, order_id));
+        if !(escrow_opt.is_some()) { env.panic_with_error(Error::EscrowNotFound); }
+        env.storage().persistent().extend_ttl(&(ESCROW, order_id), 1000, 518400);
         let escrow: Escrow = escrow_opt.unwrap();
 
         if escrow.status != EscrowStatus::Active {
@@ -867,10 +893,12 @@ impl EscrowContract {
     ) {
         authorized_address.require_auth();
 
-        let escrow_opt = env.storage().persistent().get(&(ESCROW, order_id));
-        if !(escrow_opt.is_some()) {
-            env.panic_with_error(Error::EscrowNotFound);
-        }
+        let escrow_opt = env
+            .storage()
+            .persistent()
+            .get(&(ESCROW, order_id));
+        if !(escrow_opt.is_some()) { env.panic_with_error(Error::EscrowNotFound); }
+        env.storage().persistent().extend_ttl(&(ESCROW, order_id), 1000, 518400);
         let mut escrow: Escrow = escrow_opt.unwrap();
 
         // Allow buyer or seller to dispute
@@ -962,6 +990,7 @@ impl EscrowContract {
         };
 
         env.storage().persistent().set(&PLATFORM_FEE, &new_config);
+        env.storage().persistent().extend_ttl(&PLATFORM_FEE, 1000, 518400);
     }
 
     /// Update platform wallet address (admin only)
@@ -980,6 +1009,7 @@ impl EscrowContract {
         };
 
         env.storage().persistent().set(&PLATFORM_FEE, &new_config);
+        env.storage().persistent().extend_ttl(&PLATFORM_FEE, 1000, 518400);
     }
 
     /// Set the minimum escrow amount for a specific token (admin only)
@@ -1011,7 +1041,14 @@ impl EscrowContract {
 
     /// Get total fees collected by platform
     pub fn get_total_fees_collected(env: Env) -> i128 {
-        env.storage().persistent().get(&TOTAL_FEES).unwrap_or(0)
+        let fees = env.storage()
+            .persistent()
+            .get(&TOTAL_FEES)
+            .unwrap_or(0);
+        if env.storage().persistent().has(&TOTAL_FEES) {
+            env.storage().persistent().extend_ttl(&TOTAL_FEES, 1000, 518400);
+        }
+        fees
     }
 
     /// Calculate the fee for a given amount (for display purposes)
@@ -1264,7 +1301,10 @@ impl EscrowContract {
         // Then process all releases
         for i in 0..order_ids.len() {
             if let Some(order_id) = order_ids.get(i) {
-                let escrow_opt = env.storage().persistent().get(&(ESCROW, order_id));
+                let escrow_opt: Option<Escrow> = env.storage().persistent().get(&(ESCROW, order_id));
+                if escrow_opt.is_some() {
+                    env.storage().persistent().extend_ttl(&(ESCROW, order_id), 1000, 518400);
+                }
 
                 if let Some(mut escrow) = escrow_opt {
                     // Get platform config

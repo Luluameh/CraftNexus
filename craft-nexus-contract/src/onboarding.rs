@@ -104,7 +104,10 @@ impl OnboardingContract {
         };
 
         // Store the configuration
-        env.storage().persistent().set(&DataKey::Config, &config);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Config, &config);
+        env.storage().persistent().extend_ttl(&DataKey::Config, 1000, 518400);
 
         let admin_username = String::from_str(&env, "admin");
         let normalized = normalize_username(&env, &admin_username);
@@ -121,11 +124,13 @@ impl OnboardingContract {
         env.storage()
             .persistent()
             .set(&DataKey::UserProfile(admin.clone()), &admin_profile);
+        env.storage().persistent().extend_ttl(&DataKey::UserProfile(admin.clone()), 1000, 518400);
 
         // Reserve the "admin" username
         env.storage()
             .persistent()
-            .set(&DataKey::Username(normalized), &admin);
+            .set(&DataKey::Username(normalized.clone()), &admin);
+        env.storage().persistent().extend_ttl(&DataKey::Username(normalized), 1000, 518400);
 
         config
     }
@@ -157,6 +162,7 @@ impl OnboardingContract {
             .persistent()
             .get(&DataKey::Config)
             .expect("Contract not initialized");
+        env.storage().persistent().extend_ttl(&DataKey::Config, 1000, 518400);
 
         // Normalize the username (lowercase + trim whitespace)
         let normalized = normalize_username(&env, &username);
@@ -177,6 +183,9 @@ impl OnboardingContract {
             .storage()
             .persistent()
             .get(&DataKey::UserProfile(user.clone()));
+        if existing.is_some() {
+            env.storage().persistent().extend_ttl(&DataKey::UserProfile(user.clone()), 1000, 518400);
+        }
 
         assert!(existing.is_none(), "User already onboarded");
 
@@ -201,11 +210,13 @@ impl OnboardingContract {
         env.storage()
             .persistent()
             .set(&DataKey::UserProfile(user.clone()), &profile);
+        env.storage().persistent().extend_ttl(&DataKey::UserProfile(user.clone()), 1000, 518400);
 
         // Store username → address mapping for uniqueness enforcement
         env.storage()
             .persistent()
-            .set(&DataKey::Username(normalized), &user);
+            .set(&DataKey::Username(normalized.clone()), &user);
+        env.storage().persistent().extend_ttl(&DataKey::Username(normalized), 1000, 518400);
 
         // Emit event
         env.events()
@@ -222,10 +233,12 @@ impl OnboardingContract {
     /// # Returns
     /// UserProfile if user exists, reverts otherwise
     pub fn get_user(env: Env, user: Address) -> UserProfile {
-        env.storage()
+        let profile: UserProfile = env.storage()
             .persistent()
-            .get(&DataKey::UserProfile(user))
-            .expect("User not found")
+            .get(&DataKey::UserProfile(user.clone()))
+            .expect("User not found");
+        env.storage().persistent().extend_ttl(&DataKey::UserProfile(user), 1000, 518400);
+        profile
     }
 
     /// Get user profile by username (case-insensitive)
@@ -241,13 +254,17 @@ impl OnboardingContract {
         let owner: Address = env
             .storage()
             .persistent()
-            .get(&DataKey::Username(normalized))
+            .get(&DataKey::Username(normalized.clone()))
             .expect("Username not found");
+        env.storage().persistent().extend_ttl(&DataKey::Username(normalized), 1000, 518400);
 
-        env.storage()
+        let profile: UserProfile = env.storage()
             .persistent()
-            .get(&DataKey::UserProfile(owner))
-            .expect("User not found")
+            .get(&DataKey::UserProfile(owner.clone()))
+            .expect("User not found");
+        env.storage().persistent().extend_ttl(&DataKey::UserProfile(owner), 1000, 518400);
+        
+        profile
     }
 
     /// Check if a username is already taken (case-insensitive)
@@ -259,9 +276,13 @@ impl OnboardingContract {
     /// true if username is taken, false if available
     pub fn is_username_taken(env: Env, username: String) -> bool {
         let normalized = normalize_username(&env, &username);
-        env.storage()
+        let has = env.storage()
             .persistent()
-            .has(&DataKey::Username(normalized))
+            .has(&DataKey::Username(normalized.clone()));
+        if has {
+            env.storage().persistent().extend_ttl(&DataKey::Username(normalized), 1000, 518400);
+        }
+        has
     }
 
     /// Check if user is onboarded
@@ -272,10 +293,14 @@ impl OnboardingContract {
     /// # Returns
     /// true if user has onboarded, false otherwise
     pub fn is_onboarded(env: Env, user: Address) -> bool {
-        env.storage()
+        let has = env.storage()
             .persistent()
-            .get::<DataKey, UserProfile>(&DataKey::UserProfile(user))
-            .is_some()
+            .get::<DataKey, UserProfile>(&DataKey::UserProfile(user.clone()))
+            .is_some();
+        if has {
+            env.storage().persistent().extend_ttl(&DataKey::UserProfile(user), 1000, 518400);
+        }
+        has
     }
 
     /// Get user's role
@@ -289,9 +314,12 @@ impl OnboardingContract {
         match env
             .storage()
             .persistent()
-            .get::<DataKey, UserProfile>(&DataKey::UserProfile(user))
+            .get::<DataKey, UserProfile>(&DataKey::UserProfile(user.clone()))
         {
-            Some(profile) => profile.role,
+            Some(profile) => {
+                env.storage().persistent().extend_ttl(&DataKey::UserProfile(user), 1000, 518400);
+                profile.role
+            },
             None => UserRole::None,
         }
     }
@@ -312,6 +340,7 @@ impl OnboardingContract {
             .persistent()
             .get(&DataKey::Config)
             .expect("Contract not initialized");
+        env.storage().persistent().extend_ttl(&DataKey::Config, 1000, 518400);
 
         // Only admin can update roles
         config.platform_admin.require_auth();
@@ -322,6 +351,7 @@ impl OnboardingContract {
             .persistent()
             .get(&DataKey::UserProfile(user.clone()))
             .expect("User not found");
+        env.storage().persistent().extend_ttl(&DataKey::UserProfile(user.clone()), 1000, 518400);
 
         // Update role
         let _old_role = profile.role;
@@ -331,6 +361,7 @@ impl OnboardingContract {
         env.storage()
             .persistent()
             .set(&DataKey::UserProfile(user.clone()), &profile);
+        env.storage().persistent().extend_ttl(&DataKey::UserProfile(user.clone()), 1000, 518400);
 
         // Emit event
         env.events()
@@ -354,6 +385,7 @@ impl OnboardingContract {
             .persistent()
             .get(&DataKey::Config)
             .expect("Contract not initialized");
+        env.storage().persistent().extend_ttl(&DataKey::Config, 1000, 518400);
 
         // Only admin can verify users
         config.platform_admin.require_auth();
@@ -364,6 +396,7 @@ impl OnboardingContract {
             .persistent()
             .get(&DataKey::UserProfile(user.clone()))
             .expect("User not found");
+        env.storage().persistent().extend_ttl(&DataKey::UserProfile(user.clone()), 1000, 518400);
 
         // Set verified
         profile.is_verified = true;
@@ -372,6 +405,7 @@ impl OnboardingContract {
         env.storage()
             .persistent()
             .set(&DataKey::UserProfile(user.clone()), &profile);
+        env.storage().persistent().extend_ttl(&DataKey::UserProfile(user.clone()), 1000, 518400);
 
         // Emit event
         env.events()
@@ -385,10 +419,12 @@ impl OnboardingContract {
     /// # Returns
     /// OnboardingConfig struct
     pub fn get_config(env: Env) -> OnboardingConfig {
-        env.storage()
+        let config: OnboardingConfig = env.storage()
             .persistent()
             .get(&DataKey::Config)
-            .expect("Contract not initialized")
+            .expect("Contract not initialized");
+        env.storage().persistent().extend_ttl(&DataKey::Config, 1000, 518400);
+        config
     }
 
     /// Check if user has specific role
@@ -414,9 +450,12 @@ impl OnboardingContract {
         match env
             .storage()
             .persistent()
-            .get::<DataKey, UserProfile>(&DataKey::UserProfile(user))
+            .get::<DataKey, UserProfile>(&DataKey::UserProfile(user.clone()))
         {
-            Some(profile) => profile.is_verified,
+            Some(profile) => {
+                env.storage().persistent().extend_ttl(&DataKey::UserProfile(user), 1000, 518400);
+                profile.is_verified
+            },
             None => false,
         }
     }

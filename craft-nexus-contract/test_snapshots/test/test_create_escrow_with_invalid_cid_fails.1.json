@@ -1152,7 +1152,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'Invalid IPFS CID' from contract function 'Symbol(obj#195)'"
+                  "string": "caught panic 'Invalid IPFS CID' from contract function 'Symbol(obj#199)'"
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
